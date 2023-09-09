@@ -8,6 +8,7 @@ from functions.get_date import *
 from ldubgdbot.bot.database.methods.get import *
 from functions.get_politek import *
 from functions.json_parser import *
+from ldubgdbot.bot.filters.main import IsStudent
 
 
 async def __schedule_student_choose(msg: Message):
@@ -26,9 +27,10 @@ async def __schedule_student_send1(msg: Message):
     student_id = get_student_id(user_id)
     id_s, username, f_name, status_of_subs, group_id = get_student_data(student_id)
     group_name = get_group_name_by_id(group_id)
-    group_id = get_group_id_by_name(group_name)
+    group_id = get_group_id_by_name_politek(group_name)
 
     res = get_rozklad_by_group(group_id, start_date=lessonDate, end_date=lessonDate)
+
     if res:
         data = json_parser(res, status)
         loguru.logger.info(f' 200 {user_id}')
@@ -66,7 +68,7 @@ async def __schedule_student_week_callback(query: CallbackQuery):
     student_id = get_student_id(user_id)
     id_s, username, f_name, status_of_subs, group_id = get_student_data(student_id)
     group_name = get_group_name_by_id(group_id)
-    group_id = get_group_id_by_name(group_name)
+    group_id = get_group_id_by_name_politek(group_name)
     res = get_rozklad_by_group(group_id, lessonDateStart, lessonDateEnd)
     status = get_status_by_id(user_id)
 
@@ -98,8 +100,12 @@ async def __schedule_student_week_callback(query: CallbackQuery):
 
 def register_student_handlers(dp: Dispatcher):
 
-    dp.register_message_handler(__schedule_student_choose, content_types=["text"], text="Розклад🗓")
-    dp.register_message_handler(__schedule_student_send1, content_types=["text"], text="На Сьогодні")
-    dp.register_message_handler(__schedule_student_send1, content_types=["text"], text="На Завтра")
-    dp.register_message_handler(__schedule_student_send_callback_kb, content_types=["text"], text="На Тиждень")
-    dp.register_callback_query_handler(__schedule_student_week_callback)
+    dp.register_message_handler(__schedule_student_choose, IsStudent(),
+                                content_types=["text"], text="Розклад🗓")
+    dp.register_message_handler(__schedule_student_send1, IsStudent(),
+                                content_types=["text"], text="На Сьогодні")
+    dp.register_message_handler(__schedule_student_send1, IsStudent(),
+                                content_types=["text"], text="На Завтра")
+    dp.register_message_handler(__schedule_student_send_callback_kb, IsStudent(),
+                                content_types=["text"], text="На Тиждень")
+    dp.register_callback_query_handler(__schedule_student_week_callback, IsStudent())

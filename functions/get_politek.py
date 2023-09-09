@@ -2,7 +2,7 @@ import requests
 import loguru
 
 
-def get_group_id_by_name(group_name):
+def get_group_id_by_name_politek(group_name):
     res = requests.get("https://rozklad.ldubgd.edu.ua/cgi-bin/timetable_export.cgi"
                        "?req_type=obj_list&req_mode=group&show_ID=yes&"
                        "req_format=json&coding_mode=UTF8&bs=ok")
@@ -20,7 +20,7 @@ def get_group_id_by_name(group_name):
         return []
 
 
-def get_teacher_id_by_name(f_name, m_name, l_name):
+def get_teacher_id_by_name_politek(f_name, m_name, l_name):
     res = requests.get("https://rozklad.ldubgd.edu.ua/cgi-bin/timetable_export.cgi"
                        "?req_type=obj_list&req_mode=teacher&show_ID=yes&"
                        "req_format=json&coding_mode=UTF8&bs=ok")

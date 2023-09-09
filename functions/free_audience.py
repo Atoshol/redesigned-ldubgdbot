@@ -7,28 +7,15 @@ def audience(lesson_number):
 
     data = get_audience(lesson_number)[0]["rooms"]
 
-    lst_rooms = []
-    rooms_by_floor = {}
+    rooms_by_block = {}
     for lesson in data:
-        if lesson["block"] == "НК 1":
+        if lesson['block'] in ["НК 1", "!!! НК 3 (Клепарівська,22)", "НК 2", "НК 4", "НК 5"]:
             try:
-                rooms_by_floor[lesson["name"][0]].append(lesson["name"])
+                rooms_by_block[lesson["block"].replace('!', '')].append(lesson["name"])
             except KeyError:
-                rooms_by_floor[lesson["name"][0]] = [lesson["name"]]
-    print(rooms_by_floor)
-    try:
-        pattern = f"Вільні аудиторії: \n" \
-                  f"  {hbold('1 Поверх:')}\n" \
-                  f"    {', '.join(rooms_by_floor['1'])}\n" \
-                  f"  {hbold('2 Поверх:')}\n" \
-                  f"    {', '.join(rooms_by_floor['2'])}\n" \
-                  f"  {hbold('3 Поверх:')}\n" \
-                  f"    {', '.join(rooms_by_floor['3'])}\n" \
-                  f"  {hbold('4 Поверх:')}\n" \
-                  f"    {', '.join(rooms_by_floor['4'])}\n"
-        return pattern
-    except KeyError:
-        return 'Не знайдено'
+                rooms_by_block[lesson["block"].replace('!', '')] = [lesson["name"]]
+
+    return rooms_by_block
 
 
 def get_audience(lesson_number) -> list or None:

@@ -84,7 +84,7 @@ def get_student_data(student_id):
 
 
 def get_teacher_data(teacher_id):
-    cursor.execute(f"SELECT * FROM public.api_teacher "
+    cursor.execute(f"SELECT id, f_name, m_name, l_name, status_of_subs FROM public.api_teacher "
                    f"WHERE id={teacher_id}")
     data = cursor.fetchall()
     conn.commit()

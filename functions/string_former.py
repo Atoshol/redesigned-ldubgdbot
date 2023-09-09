@@ -36,7 +36,6 @@ def str_format(lesson_data: dict, status) -> str:
     if group == "" and status == 'student':
         group = lesson_data['object']
     comment = lesson_data['replacement']
-    teams_code = lesson_data['link']
     pattern += f'{hbold(str(les_id) + ".")} {hbold(sub_name)}\n' \
                f'{"Викладач:"} {hbold(teacher)}\n' \
                f'{"Авдиторія:"} {hbold(audience)}\n' \
@@ -44,6 +43,5 @@ def str_format(lesson_data: dict, status) -> str:
                f'{"Дата:"} {hbold(date)}\n' \
                f'{"Початок заняття:"} {hbold(lesson_time)}\n' \
                f'{"Група/и:"} {hbold(group)}\n' \
-               f'Код команди в MS teams: {hbold(teams_code)}\n' \
                f'{"Коментар: " + comment if comment != "" else ""}\n\n'
     return pattern

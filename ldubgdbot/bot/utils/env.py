@@ -9,3 +9,4 @@ class Env(ABC):
     host: Final = os.environ.get('host')
     username: Final = os.environ.get('username')
     password: Final = os.environ.get('password')
+    FEEDBACK_CHAT_ID = os.environ.get('feedback')

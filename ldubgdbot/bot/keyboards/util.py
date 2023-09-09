@@ -15,13 +15,13 @@ def get_menu_keyboard(user_id: int) -> tuple:
     if status == 'admin':
         pass
     elif status == 'teacher':
-        kb.add(KeyboardButton("Надіслати повідомлення студентам"))
-        kb.row(KeyboardButton("Розклад🗓"))
+        kb.add(KeyboardButton("Надіслати повідомлення студентам📨"))
+        kb.row(KeyboardButton("Розклад🗓"), "Пошук вільної авдиторії🔍")
     else:
         kb.row(KeyboardButton("Розклад🗓"))
-    # kb_menu.add(types.KeyboardButton("Пошук вільної авдиторії🔍"))
+    kb.row(KeyboardButton("Сканувати qrcode📱"), KeyboardButton("Пошук🔍"))
     kb.row(KeyboardButton("Посібник📕"), KeyboardButton("Корисні посилання📚"))
-    kb.add(KeyboardButton("Написати відгук/Повідомити про помилку📮"))
+    kb.add(KeyboardButton("Повідомити про помилку📮"))
     kb.add(KeyboardButton("Видалити реєстрацію❌"))
     return kb, status
 
@@ -30,5 +30,3 @@ def get_registration_keyboard(user_id: int) -> tuple:
     status = get_data.get_status_by_id(user_id)
     kb = deepcopy(KB_REGISTRATION)
     return kb, status
-
-

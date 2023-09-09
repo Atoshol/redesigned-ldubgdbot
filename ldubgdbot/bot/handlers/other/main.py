@@ -1,14 +1,17 @@
 from ldubgdbot.bot.keyboards.util import *
 from ldubgdbot.bot.keyboards.inline import KB_INLINE_LINKS
+from ldubgdbot.bot.utils.env import Env
 from aiogram.dispatcher import FSMContext
-from aiogram import Dispatcher, Bot
-from aiogram.types import Message
-from aiogram.utils.markdown import hbold
+from aiogram import Dispatcher, Bot, types
+from aiogram.types import Message, InlineQuery
 from ldubgdbot.bot.utils.states import *
 from functions.check_teacher import check_teacher
 from functions.check_student_group import check_group
+from functions.get_date import *
+from functions.get_politek import *
+from functions.json_parser import json_parser
+from functions.get_politek import get_group_id_by_name_politek
 import loguru
-from ldubgdbot.bot.database.methods.get import *
 from ldubgdbot.bot.database.methods.insert import *
 from ldubgdbot.bot.database.methods.delete import *
 
@@ -182,8 +185,177 @@ async def __useful_links(msg: Message):
     await msg.answer('Натисни щоб перейти:', reply_markup=kb)
 
 
-def register_other_handlers(dp: Dispatcher):
+async def __inline_handler(query: InlineQuery):
+    bot: Bot = query.bot
+    text = query.query or 'Назва групи'
 
+    lessonDateStart = get_day_date()
+    lessonDateEnd = get_next_day_date()
+    group_name = text
+
+    group_id = get_group_id_by_name_politek(group_name)
+    res = get_rozklad_by_group(group_id, lessonDateStart, lessonDateEnd)
+    day = {
+        'first': hbold(get_name_of_week_by_date(lessonDateStart)),
+        'second': hbold(get_name_of_week_by_date(lessonDateEnd))
+    }
+    status = "student"
+    if res:
+        data = json_parser(res, status)
+        text = []
+        for key, value in data.items():
+            value = sorted(value, key=lambda value: int(value[3:4]))
+            text.append(hbold(key) + ':\n' + ''.join(value))
+    else:
+        text = []
+
+    if len(text) == 2:
+        today = types.InputTextMessageContent(text[0])
+        tomorrow = types.InputTextMessageContent(text[1])
+        description_today = 'Знайдено'
+        description_tomorrow = 'Знайдено'
+    elif len(text) == 1:
+        if text[0].startswith(day['first']):
+            today = types.InputTextMessageContent(text[0])
+            tomorrow = types.InputTextMessageContent('Занятть не знайдено.')
+            description_today = 'Знайдено '
+            description_tomorrow = 'Не знайдено'
+        elif text[0].startswith(day['second']):
+            tomorrow = types.InputTextMessageContent(text[0])
+            today = types.InputTextMessageContent('Занятть не знайдено.')
+            description_today = 'Не Знайдено'
+            description_tomorrow = 'Знайдено'
+        else:
+            today = types.InputTextMessageContent('Занятть не знайдено.')
+            tomorrow = types.InputTextMessageContent('Занятть не знайдено.')
+            description_today = 'Не Знайдено'
+            description_tomorrow = 'Не Знайдено'
+    else:
+        today = types.InputTextMessageContent('Занятть не знайдено.')
+        tomorrow = types.InputTextMessageContent('Занятть не знайдено.')
+        description_today = 'Не Знайдено'
+        description_tomorrow = 'Не Знайдено'
+    results = [
+        types.InlineQueryResultArticle(
+            id='1',
+            title=f'Розклад для групи: {group_name!r} На Сьогодні',
+            input_message_content=today,
+            description=description_today,
+            thumb_url="https://i.pinimg.com/736x/06/2d/f8/062df833fd1b91178e573fe015090fe6.jpg",
+
+        ),
+        types.InlineQueryResultArticle(
+            id='2',
+            title=f'Розклад для групи: {group_name!r} На Завтра',
+            input_message_content=tomorrow,
+            description=description_tomorrow,
+            thumb_url="https://i.pinimg.com/736x/06/2d/f8/062df833fd1b91178e573fe015090fe6.jpg",
+        )
+    ]
+    # cache_time = 1 for testing (default is 300s)
+    await bot.answer_inline_query(query.id, results=results, cache_time=1)
+
+
+async def __feedback_step1(msg: Message, state: FSMContext):
+    kb = deepcopy(KB_REMOVE)
+    await msg.answer('Опиши помилку, одним повідомленням.', reply_markup=kb)
+    await state.set_state(Feedback_state.answer_state)
+
+
+async def __feedback_step2(msg: Message, state: FSMContext):
+    bot: Bot = msg.bot
+
+    kb = deepcopy(KB_GO_TO_MENU)
+    user_id = msg.from_user.id
+    msg_id = msg.message_id
+    chat_id = Env.FEEDBACK_CHAT_ID
+    status = get_status_by_id(user_id)
+
+    await bot.send_message(chat_id=chat_id, text=f"Message from {user_id} | {status}")
+    await bot.forward_message(chat_id=chat_id, message_id=msg_id, from_chat_id=user_id)
+    await msg.answer("Дякуємо що повідомили.", reply_markup=kb)
+    await state.finish()
+
+
+async def __search_step1(msg: Message, state: FSMContext):
+    kb = deepcopy(KB_SEARCH)
+    await msg.answer("Обери:", reply_markup=kb)
+    await state.set_state(Search_state.input_data)
+
+
+async def __search_step2(msg: Message, state: FSMContext):
+    answer = msg.text
+    kb = deepcopy(KB_REMOVE)
+    await state.update_data(choose_type=answer)
+    if answer == 'За викладачем':
+        await msg.answer('Введи ПІБ викладача', reply_markup=kb)
+        await Search_state.next()
+    elif answer == 'За групою':
+        await msg.answer('Введи скорочену назву групи - Наприклад "КН12".', reply_markup=kb)
+        await Search_state.next()
+    else:
+        kb = deepcopy(KB_GO_TO_MENU)
+        await msg.answer('Виникла помилка\nНатисни щоб повернутись в меню.', reply_markup=kb)
+        await state.finish()
+
+
+async def __search_step3(msg: Message, state: FSMContext):
+    answer = msg.text
+    await state.update_data(input_data=answer)
+    kb = deepcopy(KB_SEARCH_SKIP)
+    await msg.answer('Введи дату в форматі (від) день.місяць.рік - (до) день.місяць.рік,'
+                     ' або натисни кнопку щоб пропустити цей етап.', reply_markup=kb)
+    await Search_state.next()
+
+
+async def __search_step4(msg: Message, state: FSMContext):
+    user_id = msg.from_user.id
+    data = await state.get_data()
+    status = data.get('choose_type')
+    group_or_pib = data.get('input_data')
+    answer = 0 if msg.text == 'Пропустити' else msg.text
+    if answer:
+        try:
+            answer = answer.split('-')
+            lessonDateStart = answer[0].replace(' ', '')
+            lessonDateEnd = answer[1].replace(' ', '')
+        except:
+            lessonDateStart = get_day_date()
+            lessonDateEnd = get_next_day_date()
+            await msg.answer('Не вдалось зчитати введену дату, замінено на Сьогоднішню.')
+    else:
+        lessonDateStart = get_day_date()
+        lessonDateEnd = get_next_day_date()
+
+    if status == "За викладачем":
+        l, f, m = group_or_pib.split(" ")
+        teacher_id = get_teacher_id_by_name_politek(f, m, l)
+        res = get_rozklad_by_teacher(teacher_id, lessonDateStart, lessonDateEnd)
+    elif status == "За групою":
+        group_id = get_group_id_by_name_politek(group_or_pib)
+        res = get_rozklad_by_group(group_id, lessonDateStart, lessonDateEnd)
+    else:
+        kb = deepcopy(KB_GO_TO_MENU)
+        await msg.answer('Щось пішло не так', reply_markup=kb)
+        return ''
+
+    status = 'teacher' if status == 'За викладачем' else 'student'
+    kb = deepcopy(KB_GO_TO_MENU)
+
+    if res:
+        data = json_parser(res, status)
+        loguru.logger.info(f' 200 {user_id}')
+        for key, value in data.items():
+            value = sorted(value, key=lambda value: int(value[3:4]))
+            await msg.answer(hbold(key) + ':\n' + ''.join(value))
+    else:
+        await msg.answer('Розкладу не знайдено.', reply_markup=kb)
+    await state.finish()
+
+    await msg.answer("Повернутись в меню:", reply_markup=kb)
+
+
+def register_other_handlers(dp: Dispatcher):
     dp.register_message_handler(__start, commands=["start"])
     dp.register_message_handler(__menu, content_types=['text'], text="Меню")
 
@@ -197,6 +369,18 @@ def register_other_handlers(dp: Dispatcher):
     dp.register_message_handler(__registration_step4, content_types=['text'],
                                 state=Registration_state.REG_INTO_DB)
 
+    # end region
+
     dp.register_message_handler(__delete_registration, content_types=['text'], text='Видалити реєстрацію❌')
 
     dp.register_message_handler(__useful_links, content_types=['text'], text='Корисні посилання📚')
+
+    dp.register_message_handler(__feedback_step1, content_types=['text'], text="Повідомити про помилку📮")
+    dp.register_message_handler(__feedback_step2, content_types=['text'], state=Feedback_state.answer_state)
+
+    dp.register_message_handler(__search_step1, content_types=['text'], text="Пошук🔍")
+    dp.register_message_handler(__search_step2, content_types=['text'], state=Search_state.input_data)
+    dp.register_message_handler(__search_step3, content_types=['text'], state=Search_state.input_date)
+    dp.register_message_handler(__search_step4, content_types=['text'], state=Search_state.send_response)
+
+    dp.register_inline_handler(__inline_handler)
