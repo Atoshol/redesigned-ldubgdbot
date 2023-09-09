@@ -31,3 +31,8 @@ class Teacher_send_message(StatesGroup):
     get_subject: Final = State()
     get_message: Final = State()
     send_message: Final = State()
+
+
+class Qr_state(StatesGroup):
+    get_photo_state: Final = State()
+    answer_state: Final = State()

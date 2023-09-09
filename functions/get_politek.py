@@ -88,3 +88,48 @@ def get_rozklad_by_teacher(teacher_id, start_date="", end_date=""):
     except:
         rozklad_json = []
     return rozklad_json
+
+
+def get_room_id_by_audience(audience_name):
+    res = requests.get("https://rozklad.ldubgd.edu.ua/cgi-bin/timetable_export.cgi"
+                       "?req_type=obj_list&req_mode=room&show_ID=yes&"
+                       "req_format=json&coding_mode=UTF8&bs=ok")
+    loguru.logger.info(f"{res}")
+    try:
+        if res.json():
+            try:
+                audience_id = 0
+                for block in res.json()["psrozklad_export"]["blocks"]:
+                    for room in block["objects"]:
+                        if audience_name in room['name']:
+                            audience_id = room["ID"]
+                return audience_id
+            except:
+                return []
+    except:
+        return []
+
+
+def get_rozklad_by_audience(audience_id, start_date="", end_date=""):
+    BASE = 'https://rozklad.ldubgd.edu.ua/cgi-bin/timetable_export.cgi?'
+
+    params = {"req_type": "rozklad",
+              "req_mode": "room",
+              "OBJ_ID": f"{audience_id}",
+              "OBJ_name": "",
+              "dep_name": "",
+              "ros_text": "separated",
+              "show_empty": "",
+              "begin_date": f"{start_date}",
+              "end_date": f"{end_date}",
+              "req_format": "json",
+              "coding_mode": "UTF8",
+              "bs": "ok"
+              }
+    res = requests.get(BASE, params=params)
+    loguru.logger.info(f"{res}")
+    try:
+        rozklad_json = res.json()["psrozklad_export"]["roz_items"]
+    except:
+        rozklad_json = []
+    return rozklad_json

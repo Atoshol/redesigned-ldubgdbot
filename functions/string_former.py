@@ -29,6 +29,8 @@ def str_format(lesson_data: dict, status) -> str:
     else:
         teacher = lesson_data['teacher']
     audience = lesson_data['room']
+    if audience == '':
+        audience = lesson_data['object']
     les_type = lesson_data['type']
     date = lesson_data['date']
     lesson_time = lesson_data['lesson_time']

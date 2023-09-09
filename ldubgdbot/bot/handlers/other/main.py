@@ -1,3 +1,5 @@
+import json
+
 from ldubgdbot.bot.keyboards.util import *
 from ldubgdbot.bot.keyboards.inline import KB_INLINE_LINKS
 from ldubgdbot.bot.utils.env import Env
@@ -11,6 +13,7 @@ from functions.get_date import *
 from functions.get_politek import *
 from functions.json_parser import json_parser
 from functions.get_politek import get_group_id_by_name_politek
+from functions.qrcode import _get_file
 import loguru
 from ldubgdbot.bot.database.methods.insert import *
 from ldubgdbot.bot.database.methods.delete import *
@@ -355,6 +358,45 @@ async def __search_step4(msg: Message, state: FSMContext):
     await msg.answer("Повернутись в меню:", reply_markup=kb)
 
 
+async def __qr_code_step1(msg: Message, state: FSMContext):
+    kb = deepcopy(KB_REMOVE)
+    await msg.answer('Надішли qrcode як фото.', reply_markup=kb)
+    await state.set_state(Qr_state.answer_state)
+
+
+async def __qr_code_step2(msg: Message, state: FSMContext):
+    kb = deepcopy(KB_GO_TO_MENU)
+    user_id = msg.from_user.id
+    bot: Bot = msg.bot
+
+    file_id = msg.photo[-1].file_id
+    file_content = _get_file(file_id)
+    qr_api_url = 'http://api.qrserver.com/v1/read-qr-code/'
+    res = requests.post(url=qr_api_url, files={'file': file_content})
+    json_res = json.loads(res.content)
+    qr_data = json_res[0]["symbol"][0]['data']
+
+    audience_id = get_room_id_by_audience(qr_data)
+    res = get_rozklad_by_audience(audience_id)
+    if res:
+        data = json_parser(res)
+        loguru.logger.info(f' 200 {user_id}')
+        for key, value in data.items():
+            value = sorted(value, key=lambda value: int(value[3:4]))
+            await msg.answer(hbold(key) + ':\n' + ''.join(value))
+    else:
+        await msg.answer('Розкладу не знайдено.', reply_markup=kb)
+    await state.finish()
+
+    await msg.answer("Повернутись в меню:", reply_markup=kb)
+
+
+async def __qr_code_exception(msg: Message, state: FSMContext):
+    kb = deepcopy(KB_GO_TO_MENU)
+    await msg.answer("Повинно бути фото, а не текст, натисни щоб повернутись в меню.", reply_markup=kb)
+    await state.finish()
+
+
 def register_other_handlers(dp: Dispatcher):
     dp.register_message_handler(__start, commands=["start"])
     dp.register_message_handler(__menu, content_types=['text'], text="Меню")
@@ -382,5 +424,9 @@ def register_other_handlers(dp: Dispatcher):
     dp.register_message_handler(__search_step2, content_types=['text'], state=Search_state.input_data)
     dp.register_message_handler(__search_step3, content_types=['text'], state=Search_state.input_date)
     dp.register_message_handler(__search_step4, content_types=['text'], state=Search_state.send_response)
+
+    dp.register_message_handler(__qr_code_step1, content_types=['text'], text='Сканувати qrcode📱')
+    dp.register_message_handler(__qr_code_step2, content_types=['photo'], state=Qr_state.answer_state)
+    dp.register_message_handler(__qr_code_exception, content_types=['text'], state=Qr_state.answer_state)
 
     dp.register_inline_handler(__inline_handler)
