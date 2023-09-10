@@ -397,6 +397,10 @@ async def __qr_code_exception(msg: Message, state: FSMContext):
     await state.finish()
 
 
+async def __subscribe_step1(msg: Message):
+    pass
+
+
 def register_other_handlers(dp: Dispatcher):
     dp.register_message_handler(__start, commands=["start"])
     dp.register_message_handler(__menu, content_types=['text'], text="Меню")
